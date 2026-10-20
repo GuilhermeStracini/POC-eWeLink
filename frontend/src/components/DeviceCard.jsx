@@ -1,0 +1,11 @@
+import { Lightbulb, Radio, WifiOff } from 'lucide-react';
+
+export default function DeviceCard({ device, switching, onToggle }) {
+  const isOn = device.state === 'ON';
+  const disabled = !device.online || switching;
+  return <article className={`relative overflow-hidden rounded-3xl border p-6 shadow-xl transition duration-300 ${isOn ? 'border-cyan-400/40 bg-gradient-to-br from-cyan-400/15 to-slate-800 shadow-cyan-950/20' : 'border-slate-700 bg-slate-800/70 shadow-slate-950/20'}`}>
+    <div className="flex items-start justify-between gap-3"><div className={`grid h-12 w-12 place-items-center rounded-2xl ${isOn ? 'bg-cyan-400 text-slate-950' : 'bg-slate-700 text-slate-300'}`}><Lightbulb size={24} /></div><span className={`rounded-full px-3 py-1 text-xs font-semibold ${device.online ? 'bg-emerald-400/10 text-emerald-300' : 'bg-slate-700 text-slate-400'}`}>{device.online ? <span className="inline-flex items-center gap-1.5"><Radio size={12} />Online</span> : <span className="inline-flex items-center gap-1.5"><WifiOff size={12} />Offline</span>}</span></div>
+    <div className="mt-6 min-w-0"><h2 className="truncate text-lg font-bold text-white" title={device.name}>{device.name}</h2><p className="mt-1 text-sm text-slate-400">{device.type}</p><p className="mt-3 truncate font-mono text-xs text-slate-500" title={device.id}>{device.id}</p></div>
+    <div className="mt-8 flex items-center justify-between border-t border-slate-600/50 pt-5"><div><p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Power</p><p className={`mt-1 text-sm font-bold ${isOn ? 'text-cyan-300' : 'text-slate-300'}`}>{switching ? 'Switching…' : isOn ? 'ON' : 'OFF'}</p></div><button type="button" role="switch" aria-checked={isOn} aria-label={`Turn ${device.name} ${isOn ? 'off' : 'on'}`} disabled={disabled} onClick={() => onToggle(device)} className={`relative h-8 w-14 rounded-full transition focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-slate-800 disabled:cursor-not-allowed disabled:opacity-40 ${isOn ? 'bg-cyan-400' : 'bg-slate-600'}`}><span className={`absolute top-1 h-6 w-6 rounded-full bg-white shadow transition-transform ${isOn ? 'translate-x-7' : 'translate-x-1'}`} /></button></div>
+  </article>;
+}
