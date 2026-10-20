@@ -3,7 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "type": "commonjs",
-  "scripts": { "dev": "node --watch src/server.js", "start": "node src/server.js" },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "pretest": "node -e \"require('node:fs').mkdirSync('coverage', { recursive: true })\"",
+    "test": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"test/*.test.js\""
+  },
   "dependencies": {
     "dotenv": "^18.0.8",
     "@scalar/express-api-reference": "^0.10.30",

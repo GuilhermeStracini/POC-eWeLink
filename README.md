@@ -1,5 +1,9 @@
 # eWeLink / Sonoff local-control PoC
 
+[![Build](https://github.com/GuilhermeStracini/POC-eWeLink/actions/workflows/build.yml/badge.svg)](https://github.com/GuilhermeStracini/POC-eWeLink/actions/workflows/build.yml)
+[![Release](https://github.com/GuilhermeStracini/POC-eWeLink/actions/workflows/release.yml/badge.svg)](https://github.com/GuilhermeStracini/POC-eWeLink/actions/workflows/release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/GuilhermeStracini/POC-eWeLink?sort=semver)](https://github.com/GuilhermeStracini/POC-eWeLink/releases/latest)
+
 A local React + Node.js dashboard for listing and controlling Sonoff/eWeLink devices. Credentials stay in the Express backend and are never delivered to the browser. The backend uses the [`baugp/ewelink-api`](https://github.com/baugp/ewelink-api) fork directly from GitHub.
 
 ## Architecture
@@ -10,7 +14,7 @@ React / Vite → REST API → Node.js / Express → ewelink-api → eWeLink API 
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - An eWeLink account and its API region
 
 ## Configuration
@@ -44,6 +48,20 @@ npm run dev:frontend
 ```
 
 Build the frontend with `npm run build`.
+
+## Tests and coverage
+
+```bash
+npm test               # backend (node:test) and frontend (Vitest) suites, both with coverage
+npm run coverage:report  # one Markdown table from both lcov reports
+```
+
+The backend uses Node's built-in test runner against the real `ewelink-api` module with its network layer stubbed, so the eWeLink v2 response shapes (the `thingList` wrapper, the wrong-region answer, token rejection) are exercised exactly as the cloud sends them. The frontend uses Vitest with jsdom and React Testing Library. Coverage lands in `backend/coverage/lcov.info` and `frontend/coverage/lcov.info`.
+
+## CI and releases
+
+- **Build** (`.github/workflows/build.yml`) runs on every pull request: install, frontend build, both test suites, and a coverage table posted to the job summary and as a comment on the pull request.
+- **Release** (`.github/workflows/release.yml`) runs on every push to `main`: the same build and tests, then [GitVersion](https://gitversion.net/) computes the next version from the tags on `main` (`GitVersion.yml`), the commit is tagged `vX.Y.Z`, and a GitHub release is created with generated notes and the frontend build attached as a zip.
 
 ## API documentation
 
