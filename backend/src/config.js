@@ -1,5 +1,6 @@
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+// quiet: dotenv 17+ otherwise prints an "injected env" line on every start, including in tests.
+require('dotenv').config({ path: path.resolve(__dirname, '../.env'), quiet: true });
 
 const config = {
   port: Number(process.env.PORT || 3000),

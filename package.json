@@ -2,14 +2,20 @@
   "name": "ewelink-local-control-poc",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "postinstall": "npm run install:all",
     "dev": "concurrently -n backend,frontend -c blue,magenta \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
+    "test": "npm test --prefix backend && npm test --prefix frontend",
+    "coverage:report": "node scripts/coverage-report.mjs",
     "install:all": "npm install --prefix backend && npm install --prefix frontend"
   },
-  "devDependencies": { "concurrently": "^10.0.6" }
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
 }
