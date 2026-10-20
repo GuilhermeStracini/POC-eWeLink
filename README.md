@@ -25,6 +25,8 @@ EWELINK_PASSWORD=your-password
 
 `backend/.env` is ignored by Git. Do not use `VITE_` variables for these values.
 
+`EWELINK_REGION` is the region the account was created in (`eu`, `us`, `as` or `cn`), which is not necessarily where you live: an account created in Brazil lives in `us`. If the region is wrong, eWeLink answers the login with the right one and the backend retries there automatically, logging the switch. Authentication failures are logged with the eWeLink error code and message in the backend console; the API responses stay generic.
+
 ## Install and run
 
 ```bash

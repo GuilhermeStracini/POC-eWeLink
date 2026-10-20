@@ -33,7 +33,7 @@ app.use((error, _req, res, _next) => {
     return res.status(503).json({ error: 'Unable to authenticate with eWeLink' });
   }
   console.error('eWeLink request failed:', error.message);
-  res.status(502).json({ error: 'Unable to switch device' });
+  res.status(502).json({ error: 'eWeLink request failed' });
 });
 
 app.listen(config.port, () => console.log(`Backend listening on http://localhost:${config.port}`));
