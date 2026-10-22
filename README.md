@@ -29,6 +29,8 @@ EWELINK_PASSWORD=your-password
 
 `backend/.env` is ignored by Git. Do not use `VITE_` variables for these values.
 
+Optionally, set `EWELINK_APP_ID` and `EWELINK_APP_SECRET` to the credentials of your own app from the [eWeLink developer platform](https://dev.ewelink.cc). Without them, `ewelink-api` uses a shared app ID that eWeLink only allows on read paths: listing devices works, but turning them on or off fails with `eWeLink error 407`.
+
 `EWELINK_REGION` is the region the account was created in (`eu`, `us`, `as` or `cn`), which is not necessarily where you live: an account created in Brazil lives in `us`. If the region is wrong, eWeLink answers the login with the right one and the backend retries there automatically, logging the switch. Authentication failures are logged with the eWeLink error code and message in the backend console; the API responses stay generic.
 
 ## Install and run

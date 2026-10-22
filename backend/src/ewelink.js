@@ -68,6 +68,8 @@ class EwelinkService {
         email: config.ewelink.username,
         password: config.ewelink.password,
         region: this.region,
+        APP_ID: config.ewelink.appId,
+        APP_SECRET: config.ewelink.appSecret,
       });
     }
     return this.client;

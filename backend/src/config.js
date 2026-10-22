@@ -8,6 +8,9 @@ const config = {
     region: process.env.EWELINK_REGION,
     username: process.env.EWELINK_USERNAME,
     password: process.env.EWELINK_PASSWORD,
+    // Optional: ewelink-api falls back to a shared app ID that eWeLink only allows on read-only paths.
+    appId: process.env.EWELINK_APP_ID || undefined,
+    appSecret: process.env.EWELINK_APP_SECRET || undefined,
   },
 };
 

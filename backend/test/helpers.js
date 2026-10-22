@@ -1,7 +1,7 @@
 const path = require('node:path');
 
 const SRC = path.resolve(__dirname, '../src');
-const ENV_KEYS = ['EWELINK_REGION', 'EWELINK_USERNAME', 'EWELINK_PASSWORD', 'PORT'];
+const ENV_KEYS = ['EWELINK_REGION', 'EWELINK_USERNAME', 'EWELINK_PASSWORD', 'EWELINK_APP_ID', 'EWELINK_APP_SECRET', 'PORT'];
 
 // config.js reads process.env when it is first required, so every test that
 // needs a different configuration loads a fresh copy of the service modules.
