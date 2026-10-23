@@ -9,6 +9,8 @@ const { loadTokens, saveTokens, clearTokens } = require('./tokenStore');
 const WRONG_REGION_ERROR = 10004;
 // Returned by the cloud when the access token is missing or revoked (401) or expired (402).
 const TOKEN_ERRORS = new Set([401, 402]);
+// The developer app's role does not include the requested API (e.g. the OTA query).
+const PATH_NOT_ALLOWED_ERROR = 407;
 // The region ends up in the API hostname, so only the known ones are accepted.
 const REGIONS = new Set(['cn', 'as', 'us', 'eu']);
 const AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
@@ -248,7 +250,7 @@ class EwelinkService {
   // Best effort: a failed OTA lookup must not take the device list down with it.
   async queryFirmwareUpdates(devices) {
     const deviceInfoList = devices.map(firmwareQuery).filter(Boolean);
-    if (deviceInfoList.length === 0) return [];
+    if (this.firmwareCheckDenied || deviceInfoList.length === 0) return [];
     try {
       const result = await this.request((client) => client.makeRequest({
         method: 'post',
@@ -257,7 +259,13 @@ class EwelinkService {
       }));
       return result?.data?.otaInfoList ?? [];
     } catch (error) {
-      console.error('eWeLink firmware update check failed:', error.message);
+      if (error.code === PATH_NOT_ALLOWED_ERROR) {
+        // The app's API permissions will not change while we run: stop asking.
+        this.firmwareCheckDenied = true;
+        console.warn('eWeLink app is not allowed to query firmware updates; skipping the check until restart');
+      } else {
+        console.error('eWeLink firmware update check failed:', error.message);
+      }
       return [];
     }
   }

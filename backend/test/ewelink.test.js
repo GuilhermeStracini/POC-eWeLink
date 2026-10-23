@@ -82,6 +82,30 @@ describe('EwelinkService', () => {
     assert.match(errorLog.calls.join('\n'), /firmware update check failed: eWeLink error 500/);
   });
 
+  test('an app without permission for the OTA query is warned about once and not asked again', async () => {
+    const { EwelinkService } = loadService();
+    let otaQueries = 0;
+    restore = stubLibrary(Ewelink, {
+      login: () => okLogin(),
+      request: ({ uri }) => {
+        if (uri === '/device/ota/query') {
+          otaQueries += 1;
+          return { error: 407, msg: 'the path of request is not allowed with appid:abc' };
+        }
+        return thingListResponse(makeThing({ extra: { uiid: 1, model: 'PSF-BD1-GL' } }));
+      },
+    });
+
+    const service = new EwelinkService();
+    assert.equal((await service.getDevices())[0].updateAvailable, false);
+    assert.equal((await service.getDevices()).length, 1);
+
+    assert.equal(otaQueries, 1);
+    assert.equal(warnLog.calls.length, 1);
+    assert.match(warnLog.calls[0], /not allowed to query firmware updates/);
+    assert.equal(errorLog.calls.length, 0);
+  });
+
   test('getDevices returns an empty list for an account without devices', async () => {
     const { EwelinkService } = loadService();
     restore = stubLibrary(Ewelink, {
