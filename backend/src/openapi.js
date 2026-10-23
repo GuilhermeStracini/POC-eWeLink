@@ -33,7 +33,7 @@ const openapi = {
   components: {
     parameters: { DeviceId: { name: 'deviceId', in: 'path', required: true, description: 'eWeLink device identifier', schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,128}$' } } },
     schemas: {
-      Device: { type: 'object', required: ['id', 'name', 'type', 'online', 'state'], properties: { id: { type: 'string', example: '1000abcdef1234' }, name: { type: 'string', example: 'Living Room' }, type: { type: 'string', example: 'BASICR3' }, online: { type: 'boolean' }, state: { type: 'string', enum: ['ON', 'OFF'] }, uiid: { type: ['number', 'string'] }, firmwareVersion: { type: 'string' } } },
+      Device: { type: 'object', required: ['id', 'name', 'type', 'online', 'state'], properties: { id: { type: 'string', example: '1000abcdef1234' }, name: { type: 'string', example: 'Living Room' }, type: { type: 'string', example: 'BASICR3' }, online: { type: 'boolean' }, state: { type: 'string', enum: ['ON', 'OFF'] }, uiid: { type: ['number', 'string'] }, firmwareVersion: { type: 'string' }, updateAvailable: { type: 'boolean', description: 'Only reported by the device list' }, latestFirmwareVersion: { type: 'string', description: 'Present when updateAvailable is true' } } },
       Error: { type: 'object', required: ['error'], properties: { error: { type: 'string' }, authorizeUrl: { type: 'string', description: 'Present when the app must be authorized with eWeLink first', example: '/api/oauth/login' } } },
     },
     responses: {

@@ -30,9 +30,56 @@ describe('EwelinkService', () => {
     const devices = await new EwelinkService().getDevices();
 
     assert.deepEqual(devices, [
-      { id: '10012abcde', name: 'Kitchen light', type: 'BASICR2', online: true, state: 'ON', uiid: 1, firmwareVersion: '3.7.6' },
-      { id: '10012fffff', name: 'Hall', type: 'BASICR2', online: false, state: 'OFF', uiid: 1, firmwareVersion: undefined },
+      { id: '10012abcde', name: 'Kitchen light', type: 'BASICR2', online: true, state: 'ON', uiid: 1, firmwareVersion: '3.7.6', updateAvailable: false },
+      { id: '10012fffff', name: 'Hall', type: 'BASICR2', online: false, state: 'OFF', uiid: 1, firmwareVersion: undefined, updateAvailable: false },
     ]);
+  });
+
+  test('getDevices asks the OTA service about devices with a known model and flags the outdated ones', async () => {
+    const { EwelinkService } = loadService();
+    const otaQueries = [];
+    restore = stubLibrary(Ewelink, {
+      login: () => okLogin(),
+      request: ({ uri, body }) => {
+        if (uri === '/device/ota/query') {
+          otaQueries.push(body);
+          return { error: 0, data: { otaInfoList: [{ deviceid: '10012abcde', version: '3.8.0' }, { deviceid: '10012bbbbb' }] } };
+        }
+        return thingListResponse(
+          makeThing({ extra: { uiid: 1, model: 'PSF-BD1-GL' } }),
+          makeThing({ deviceid: '10012bbbbb', extra: { uiid: 1, model: 'PSF-BD1-GL' } }),
+          makeThing({ deviceid: '10012ccccc' }),
+        );
+      },
+    });
+
+    const devices = await new EwelinkService().getDevices();
+
+    assert.deepEqual(otaQueries, [{ deviceInfoList: [
+      { deviceid: '10012abcde', model: 'PSF-BD1-GL', version: '3.7.6' },
+      { deviceid: '10012bbbbb', model: 'PSF-BD1-GL', version: '3.7.6' },
+    ] }]);
+    assert.deepEqual(devices.map(({ id, updateAvailable, latestFirmwareVersion }) => ({ id, updateAvailable, latestFirmwareVersion })), [
+      { id: '10012abcde', updateAvailable: true, latestFirmwareVersion: '3.8.0' },
+      { id: '10012bbbbb', updateAvailable: false, latestFirmwareVersion: undefined },
+      { id: '10012ccccc', updateAvailable: false, latestFirmwareVersion: undefined },
+    ]);
+  });
+
+  test('a failed firmware check is logged and the device list is still returned', async () => {
+    const { EwelinkService } = loadService();
+    restore = stubLibrary(Ewelink, {
+      login: () => okLogin(),
+      request: ({ uri }) => (uri === '/device/ota/query'
+        ? { error: 500, msg: 'internal error' }
+        : thingListResponse(makeThing({ extra: { uiid: 1, model: 'PSF-BD1-GL' } }))),
+    });
+
+    const devices = await new EwelinkService().getDevices();
+
+    assert.equal(devices.length, 1);
+    assert.equal(devices[0].updateAvailable, false);
+    assert.match(errorLog.calls.join('\n'), /firmware update check failed: eWeLink error 500/);
   });
 
   test('getDevices returns an empty list for an account without devices', async () => {

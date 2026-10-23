@@ -31,6 +31,17 @@ describe('DeviceCard', () => {
     expect(screen.getByText('OFF')).toBeTruthy();
   });
 
+  it('shows the firmware version and flags an available update', () => {
+    const { rerender } = render(<DeviceCard device={{ ...device, firmwareVersion: '3.7.6', updateAvailable: false }} switching={false} onToggle={() => {}} />);
+
+    expect(screen.getByText('Firmware 3.7.6')).toBeTruthy();
+    expect(screen.queryByText(/Update available/)).toBeNull();
+
+    rerender(<DeviceCard device={{ ...device, firmwareVersion: '3.7.6', updateAvailable: true, latestFirmwareVersion: '3.8.0' }} switching={false} onToggle={() => {}} />);
+
+    expect(screen.getByText('Update available: 3.8.0')).toBeTruthy();
+  });
+
   it('disables the switch while switching and for offline devices', () => {
     const onToggle = vi.fn();
     const { rerender } = render(<DeviceCard device={device} switching onToggle={onToggle} />);

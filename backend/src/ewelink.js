@@ -50,6 +50,24 @@ function unwrapThing(item) {
   return item?.itemData ?? item;
 }
 
+// The OTA query wants the hardware model (e.g. PSF-BD1-GL), not the product name.
+// v2 things keep it in extra.model; older payloads nest it one level deeper.
+function firmwareQuery(device) {
+  const model = device?.extra?.model ?? device?.extra?.extra?.model;
+  const version = device?.params?.fwVersion;
+  return model && version ? { deviceid: device.deviceid, model, version } : null;
+}
+
+// otaInfoList only carries a version for devices that have a newer firmware.
+function withFirmwareUpdates(devices, otaInfoList) {
+  const latest = new Map((Array.isArray(otaInfoList) ? otaInfoList : []).map((info) => [info.deviceid, info.version]));
+  return devices.map((device) => {
+    const version = latest.get(device.id);
+    if (!version || version === device.firmwareVersion) return { ...device, updateAvailable: false };
+    return { ...device, updateAvailable: true, latestFirmwareVersion: version };
+  });
+}
+
 function throwForLibraryError(result) {
   if (result?.error) {
     throw new EwelinkRequestError(result.error, result.msg);
@@ -222,8 +240,26 @@ class EwelinkService {
   }
 
   async getDevices() {
-    const things = await this.request((client) => client.getDevices());
-    return (Array.isArray(things) ? things : []).map((item) => normaliseDevice(unwrapThing(item)));
+    const result = await this.request((client) => client.getDevices());
+    const raw = (Array.isArray(result) ? result : []).map(unwrapThing);
+    return withFirmwareUpdates(raw.map(normaliseDevice), await this.queryFirmwareUpdates(raw));
+  }
+
+  // Best effort: a failed OTA lookup must not take the device list down with it.
+  async queryFirmwareUpdates(devices) {
+    const deviceInfoList = devices.map(firmwareQuery).filter(Boolean);
+    if (deviceInfoList.length === 0) return [];
+    try {
+      const result = await this.request((client) => client.makeRequest({
+        method: 'post',
+        uri: '/device/ota/query',
+        body: { deviceInfoList },
+      }));
+      return result?.data?.otaInfoList ?? [];
+    } catch (error) {
+      console.error('eWeLink firmware update check failed:', error.message);
+      return [];
+    }
   }
 
   async getDevice(deviceId) {
