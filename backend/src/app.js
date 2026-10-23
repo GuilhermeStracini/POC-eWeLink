@@ -1,10 +1,19 @@
 const express = require('express');
 const { apiReference } = require('@scalar/express-api-reference');
 const { openapi } = require('./openapi');
-const { EwelinkConfigurationError, EwelinkAuthenticationError } = require('./ewelink');
+const { config } = require('./config');
+const {
+  EwelinkConfigurationError,
+  EwelinkAuthenticationError,
+  EwelinkAuthorizationRequiredError,
+} = require('./ewelink');
 const { deviceRoutes } = require('./routes/devices');
+const { oauthRoutes } = require('./routes/oauth');
 
-function createApp(ewelink) {
+const AUTHORIZE_PATH = '/api/oauth/login';
+const authorizationRequired = { error: 'eWeLink authorization required', authorizeUrl: AUTHORIZE_PATH };
+
+function createApp(ewelink, { frontendUrl = config.frontendUrl } = {}) {
   const app = express();
   app.use(express.json());
 
@@ -20,15 +29,22 @@ function createApp(ewelink) {
       await ewelink.authenticate();
       res.json({ status: 'ok', ewelink: 'connected' });
     } catch (error) {
+      if (error instanceof EwelinkAuthorizationRequiredError) {
+        return res.status(503).json({ status: 'unavailable', ...authorizationRequired });
+      }
       res.status(error instanceof EwelinkConfigurationError ? 503 : 502)
         .json({ status: 'unavailable', error: 'Unable to authenticate with eWeLink' });
     }
   });
 
+  app.use('/api/oauth', oauthRoutes(ewelink, { frontendUrl }));
   app.use('/api/devices', deviceRoutes(ewelink));
 
   // eslint-disable-next-line no-unused-vars
   app.use((error, _req, res, _next) => {
+    if (error instanceof EwelinkAuthorizationRequiredError) {
+      return res.status(503).json(authorizationRequired);
+    }
     if (error instanceof EwelinkConfigurationError || error instanceof EwelinkAuthenticationError) {
       return res.status(503).json({ error: 'Unable to authenticate with eWeLink' });
     }

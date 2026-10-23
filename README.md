@@ -19,7 +19,25 @@ React / Vite → REST API → Node.js / Express → ewelink-api → eWeLink API 
 
 ## Configuration
 
-Copy `backend/.env.example` to `backend/.env`, then add your credentials:
+Copy `backend/.env.example` to `backend/.env`, then pick one of the two login modes. `backend/.env` is ignored by Git. Do not use `VITE_` variables for these values.
+
+### OAuth with your own app (needed to switch devices)
+
+1. Create an app on the [eWeLink developer platform](https://dev.ewelink.cc) and register `http://localhost:3000/api/oauth/callback` as its redirect URL.
+2. Set its credentials:
+
+   ```env
+   EWELINK_APP_ID=your-app-id
+   EWELINK_APP_SECRET=your-app-secret
+   ```
+
+3. Start the app and click **Connect eWeLink** on the dashboard (or open http://localhost:3000/api/oauth/login), then sign in with your eWeLink account.
+
+The backend stores the resulting tokens in `backend/.ewelink-token.json` (ignored by Git) and refreshes them automatically. Access tokens last 30 days and refresh tokens 60; if the refresh token expires, the dashboard asks you to connect again. `EWELINK_OAUTH_REDIRECT_URL` and `FRONTEND_URL` override the callback URL and where the browser lands afterwards.
+
+eWeLink refuses email/password login for developer apps (error `407`), which is why this mode needs the browser step.
+
+### Password login (read-only)
 
 ```env
 EWELINK_REGION=eu
@@ -27,9 +45,7 @@ EWELINK_USERNAME=you@example.com
 EWELINK_PASSWORD=your-password
 ```
 
-`backend/.env` is ignored by Git. Do not use `VITE_` variables for these values.
-
-Optionally, set `EWELINK_APP_ID` and `EWELINK_APP_SECRET` to the credentials of your own app from the [eWeLink developer platform](https://dev.ewelink.cc). Without them, `ewelink-api` uses a shared app ID that eWeLink only allows on read paths: listing devices works, but turning them on or off fails with `eWeLink error 407`.
+This uses the app ID built into `ewelink-api`, which eWeLink only allows on read paths: listing devices works, but turning them on or off fails with `eWeLink error 407`.
 
 `EWELINK_REGION` is the region the account was created in (`eu`, `us`, `as` or `cn`), which is not necessarily where you live: an account created in Brazil lives in `us`. If the region is wrong, eWeLink answers the login with the right one and the backend retries there automatically, logging the switch. Authentication failures are logged with the eWeLink error code and message in the backend console; the API responses stay generic.
 
@@ -72,6 +88,8 @@ With the backend running, open [Scalar API Reference](http://localhost:3000/api-
 ## REST API
 
 - `GET /api/health` – verifies eWeLink connectivity without revealing secrets
+- `GET /api/oauth/login` – starts eWeLink authorization (OAuth mode)
+- `GET /api/oauth/callback` – receives the authorization code from eWeLink and stores the tokens
 - `GET /api/devices` – lists normalized devices
 - `GET /api/devices/:deviceId` – retrieves one device
 - `POST /api/devices/:deviceId/on` – turns a device on

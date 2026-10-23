@@ -3,5 +3,6 @@ dist/
 coverage/
 .env
 backend/.env
+backend/.ewelink-token.json
 frontend/.env
 *.log

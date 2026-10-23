@@ -1,16 +1,20 @@
 const path = require('node:path');
 
 const SRC = path.resolve(__dirname, '../src');
-const ENV_KEYS = ['EWELINK_REGION', 'EWELINK_USERNAME', 'EWELINK_PASSWORD', 'EWELINK_APP_ID', 'EWELINK_APP_SECRET', 'PORT'];
+const ENV_KEYS = [
+  'EWELINK_REGION', 'EWELINK_USERNAME', 'EWELINK_PASSWORD', 'EWELINK_APP_ID', 'EWELINK_APP_SECRET',
+  'EWELINK_OAUTH_REDIRECT_URL', 'EWELINK_TOKEN_FILE', 'FRONTEND_URL', 'PORT',
+];
 
 // config.js reads process.env when it is first required, so every test that
 // needs a different configuration loads a fresh copy of the service modules.
+// Unused keys are set to '' rather than deleted: dotenv would otherwise fill them
+// from the developer's own backend/.env.
 function loadService(env = { EWELINK_REGION: 'eu', EWELINK_USERNAME: 'user@example.com', EWELINK_PASSWORD: 'secret' }) {
   for (const key of ENV_KEYS) {
-    if (env[key] === undefined) delete process.env[key];
-    else process.env[key] = env[key];
+    process.env[key] = env[key] ?? '';
   }
-  for (const file of ['config.js', 'ewelink.js', 'app.js', 'routes/devices.js']) {
+  for (const file of ['config.js', 'oauth.js', 'tokenStore.js', 'ewelink.js', 'app.js', 'routes/devices.js', 'routes/oauth.js']) {
     delete require.cache[require.resolve(path.join(SRC, file))];
   }
   return require(path.join(SRC, 'ewelink.js'));

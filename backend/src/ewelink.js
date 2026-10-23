@@ -1,14 +1,23 @@
+const crypto = require('node:crypto');
 const Ewelink = require('ewelink-api');
-const { config, hasEwelinkConfiguration } = require('./config');
+const { config, hasEwelinkConfiguration, usesOAuth } = require('./config');
+const { createLoginUrl, exchangeCode, refreshTokens } = require('./oauth');
+const { loadTokens, saveTokens, clearTokens } = require('./tokenStore');
 
 // eWeLink accounts are bound to the region they were created in. A login sent to the
 // wrong region is answered with this code and the right region in `data.region`.
 const WRONG_REGION_ERROR = 10004;
-// Returned by the cloud when the access token is missing, expired or revoked.
-const INVALID_TOKEN_ERROR = 401;
+// Returned by the cloud when the access token is missing or revoked (401) or expired (402).
+const TOKEN_ERRORS = new Set([401, 402]);
+// The region ends up in the API hostname, so only the known ones are accepted.
+const REGIONS = new Set(['cn', 'as', 'us', 'eu']);
+const AUTHORIZATION_TTL_MS = 10 * 60 * 1000;
 
 class EwelinkConfigurationError extends Error {}
 class EwelinkAuthenticationError extends Error {}
+// OAuth mode without a usable token: someone has to authorize the app in a browser.
+class EwelinkAuthorizationRequiredError extends EwelinkAuthenticationError {}
+class EwelinkAuthorizationStateError extends Error {}
 class EwelinkRequestError extends Error {
   constructor(code, message) {
     super(`eWeLink error ${code}: ${message || 'no message'}`);
@@ -53,6 +62,9 @@ class EwelinkService {
     this.client = null;
     this.region = config.ewelink.region;
     this.loginInFlight = null;
+    this.refreshInFlight = null;
+    this.tokens = usesOAuth() ? loadTokens(config.ewelink.tokenFile) : null;
+    this.pendingAuthorizations = new Map();
   }
 
   ensureConfigured() {
@@ -64,20 +76,95 @@ class EwelinkService {
   getClient() {
     this.ensureConfigured();
     if (!this.client) {
-      this.client = new Ewelink({
-        email: config.ewelink.username,
-        password: config.ewelink.password,
-        region: this.region,
-        APP_ID: config.ewelink.appId,
-        APP_SECRET: config.ewelink.appSecret,
-      });
+      if (usesOAuth()) {
+        if (!this.tokens) throw new EwelinkAuthorizationRequiredError('eWeLink authorization required');
+        this.client = new Ewelink({
+          at: this.tokens.at,
+          region: this.tokens.region,
+          APP_ID: config.ewelink.appId,
+          APP_SECRET: config.ewelink.appSecret,
+        });
+      } else {
+        this.client = new Ewelink({
+          email: config.ewelink.username,
+          password: config.ewelink.password,
+          region: this.region,
+        });
+      }
     }
     return this.client;
+  }
+
+  setTokens(tokens) {
+    this.tokens = tokens;
+    this.client = null;
+    if (tokens) saveTokens(config.ewelink.tokenFile, tokens);
+    else clearTokens(config.ewelink.tokenFile);
+  }
+
+  // Starts the OAuth flow: the browser is sent to this URL and comes back to the callback.
+  createAuthorizationUrl() {
+    this.ensureConfigured();
+    if (!usesOAuth()) {
+      throw new EwelinkConfigurationError('OAuth needs EWELINK_APP_ID and EWELINK_APP_SECRET');
+    }
+    const now = Date.now();
+    for (const [state, expiresAt] of this.pendingAuthorizations) {
+      if (expiresAt < now) this.pendingAuthorizations.delete(state);
+    }
+    const state = crypto.randomUUID();
+    this.pendingAuthorizations.set(state, now + AUTHORIZATION_TTL_MS);
+    const { appId, appSecret, oauthRedirectUrl } = config.ewelink;
+    return createLoginUrl({ appId, appSecret, redirectUrl: oauthRedirectUrl, state });
+  }
+
+  async completeAuthorization({ code, region, state }) {
+    const expiresAt = this.pendingAuthorizations.get(state);
+    this.pendingAuthorizations.delete(state);
+    if (!code || !REGIONS.has(region) || !expiresAt || expiresAt < Date.now()) {
+      throw new EwelinkAuthorizationStateError('Invalid or expired authorization request');
+    }
+    const { appId, appSecret, oauthRedirectUrl } = config.ewelink;
+    try {
+      this.setTokens(await exchangeCode({ appId, appSecret, region, code, redirectUrl: oauthRedirectUrl }));
+    } catch (error) {
+      console.error('eWeLink authorization failed:', error.message);
+      throw new EwelinkAuthenticationError('Unable to authenticate with eWeLink');
+    }
+  }
+
+  // Like logins, concurrent requests that hit an expired token share one refresh.
+  refresh() {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshNow().finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    return this.refreshInFlight;
+  }
+
+  async refreshNow() {
+    const { appId, appSecret } = config.ewelink;
+    try {
+      this.setTokens(await refreshTokens({ appId, appSecret, region: this.tokens.region, rt: this.tokens.rt }));
+    } catch (error) {
+      // Network failures keep the tokens; an eWeLink refusal means the refresh token is dead.
+      if (!error.code) throw error;
+      console.error('eWeLink token refresh failed:', error.message);
+      this.setTokens(null);
+      throw new EwelinkAuthorizationRequiredError('eWeLink authorization required');
+    }
   }
 
   // The dashboard calls /api/health and /api/devices at the same time: share one login
   // between concurrent callers instead of hitting the eWeLink login endpoint twice.
   authenticate() {
+    if (usesOAuth()) {
+      return new Promise((resolve) => {
+        this.getClient();
+        resolve(true);
+      });
+    }
     if (!this.loginInFlight) {
       this.loginInFlight = this.login().finally(() => {
         this.loginInFlight = null;
@@ -121,10 +208,15 @@ class EwelinkService {
   }
 
   async request(operation) {
-    const result = await operation(await this.getAuthenticatedClient());
-    if (result?.error === INVALID_TOKEN_ERROR) {
-      // Force a fresh login on the next request instead of reusing a dead token.
+    let result = await operation(await this.getAuthenticatedClient());
+    if (TOKEN_ERRORS.has(result?.error)) {
+      // Never reuse a dead token: OAuth refreshes it and retries once, password mode
+      // logs in again on the next request.
       this.client = null;
+      if (usesOAuth()) {
+        await this.refresh();
+        result = await operation(await this.getAuthenticatedClient());
+      }
     }
     return throwForLibraryError(result);
   }
@@ -148,4 +240,11 @@ class EwelinkService {
   turnOff(deviceId) { return this.setPower(deviceId, 'off'); }
 }
 
-module.exports = { EwelinkService, EwelinkConfigurationError, EwelinkAuthenticationError, EwelinkRequestError };
+module.exports = {
+  EwelinkService,
+  EwelinkConfigurationError,
+  EwelinkAuthenticationError,
+  EwelinkAuthorizationRequiredError,
+  EwelinkAuthorizationStateError,
+  EwelinkRequestError,
+};

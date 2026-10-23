@@ -43,6 +43,12 @@ describe('api client', () => {
     await expect(api.turnDeviceOn('1')).rejects.toThrow('Device is offline');
   });
 
+  it('passes on the authorization URL when the backend asks for one', async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: 'eWeLink authorization required', authorizeUrl: '/api/oauth/login' }, 503));
+
+    await expect(api.getDevices()).rejects.toMatchObject({ message: 'eWeLink authorization required', authorizeUrl: '/api/oauth/login' });
+  });
+
   it('falls back to a generic message when the error body is empty or not JSON', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 500, json: async () => { throw new SyntaxError('bad json'); } });
     await expect(api.getDevices()).rejects.toThrow('Something went wrong. Please try again.');

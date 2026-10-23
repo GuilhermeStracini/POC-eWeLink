@@ -68,6 +68,16 @@ describe('App', () => {
     expect(screen.getByText('No devices found')).toBeTruthy();
   });
 
+  it('offers to connect eWeLink when the backend still needs authorization', async () => {
+    const required = Object.assign(new Error('eWeLink authorization required'), { authorizeUrl: '/api/oauth/login' });
+    api.getHealth.mockRejectedValue(required);
+    api.getDevices.mockRejectedValue(required);
+    render(<App />);
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Connect your eWeLink account');
+    expect(screen.getByRole('link', { name: 'Connect eWeLink' }).getAttribute('href')).toBe('/api/oauth/login');
+  });
+
   it('refreshes the list on demand', async () => {
     render(<App />);
     await screen.findByRole('heading', { name: 'Kitchen light' });

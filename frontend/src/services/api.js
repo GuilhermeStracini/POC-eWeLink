@@ -1,7 +1,8 @@
 async function request(path, options) {
   const response = await fetch(path, options);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error || 'Something went wrong. Please try again.');
+  // authorizeUrl is set when the backend has to be authorized with eWeLink before it can answer.
+  if (!response.ok) throw Object.assign(new Error(body.error || 'Something went wrong. Please try again.'), { authorizeUrl: body.authorizeUrl });
   return body;
 }
 

@@ -6,10 +6,16 @@ const openapi = {
     description: 'Local REST API for listing and controlling eWeLink/Sonoff devices. Authentication credentials remain on the server and are never part of this API.',
   },
   servers: [{ url: 'http://localhost:3000', description: 'Local development server' }],
-  tags: [{ name: 'System' }, { name: 'Devices' }],
+  tags: [{ name: 'System' }, { name: 'Authorization' }, { name: 'Devices' }],
   paths: {
     '/api/health': {
       get: { tags: ['System'], summary: 'Check backend and eWeLink connectivity', responses: { 200: { description: 'Connected' }, 503: { $ref: '#/components/responses/AuthenticationUnavailable' } } },
+    },
+    '/api/oauth/login': {
+      get: { tags: ['Authorization'], summary: 'Start eWeLink authorization (OAuth mode); open in a browser', responses: { 302: { description: 'Redirect to the eWeLink sign-in page' }, 503: { $ref: '#/components/responses/AuthenticationUnavailable' } } },
+    },
+    '/api/oauth/callback': {
+      get: { tags: ['Authorization'], summary: 'Receive the authorization code from eWeLink', parameters: [{ name: 'code', in: 'query', required: true, schema: { type: 'string' } }, { name: 'region', in: 'query', required: true, schema: { type: 'string', enum: ['cn', 'as', 'us', 'eu'] } }, { name: 'state', in: 'query', required: true, schema: { type: 'string' } }], responses: { 302: { description: 'Authorized; redirect to the dashboard' }, 400: { description: 'Invalid or expired authorization request', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } }, 503: { $ref: '#/components/responses/AuthenticationUnavailable' } } },
     },
     '/api/devices': {
       get: { tags: ['Devices'], summary: 'List devices', responses: { 200: { description: 'Devices retrieved', content: { 'application/json': { schema: { type: 'object', required: ['devices'], properties: { devices: { type: 'array', items: { $ref: '#/components/schemas/Device' } } } } } } }, 503: { $ref: '#/components/responses/AuthenticationUnavailable' } } },
@@ -28,7 +34,7 @@ const openapi = {
     parameters: { DeviceId: { name: 'deviceId', in: 'path', required: true, description: 'eWeLink device identifier', schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{4,128}$' } } },
     schemas: {
       Device: { type: 'object', required: ['id', 'name', 'type', 'online', 'state'], properties: { id: { type: 'string', example: '1000abcdef1234' }, name: { type: 'string', example: 'Living Room' }, type: { type: 'string', example: 'BASICR3' }, online: { type: 'boolean' }, state: { type: 'string', enum: ['ON', 'OFF'] }, uiid: { type: ['number', 'string'] }, firmwareVersion: { type: 'string' } } },
-      Error: { type: 'object', required: ['error'], properties: { error: { type: 'string' } } },
+      Error: { type: 'object', required: ['error'], properties: { error: { type: 'string' }, authorizeUrl: { type: 'string', description: 'Present when the app must be authorized with eWeLink first', example: '/api/oauth/login' } } },
     },
     responses: {
       PowerChanged: { description: 'Device state updated', content: { 'application/json': { schema: { type: 'object', required: ['success', 'device'], properties: { success: { type: 'boolean', example: true }, device: { $ref: '#/components/schemas/Device' } } } } } },
