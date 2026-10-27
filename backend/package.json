@@ -10,7 +10,7 @@
     "test": "node --test --experimental-test-coverage --test-coverage-include=\"src/**\" --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"test/*.test.js\""
   },
   "dependencies": {
-    "dotenv": "^18.0.8",
+    "dotenv": "^18.0.9",
     "@scalar/express-api-reference": "^0.10.30",
     "express": "^5.3.0",
     "ewelink-api": "git+https://github.com/baugp/ewelink-api.git#master"
