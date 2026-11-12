@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "dotenv": "^18.0.9",
-    "@scalar/express-api-reference": "^0.10.34",
+    "@scalar/express-api-reference": "^0.10.35",
     "express": "^5.3.0",
     "ewelink-api": "git+https://github.com/baugp/ewelink-api.git#master"
   }
