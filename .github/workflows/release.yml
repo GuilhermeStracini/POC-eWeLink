@@ -115,7 +115,7 @@ jobs:
         uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.4
         with:
           tag_name: ${{ steps.guard.outputs.version }}
-          name: ${{ steps.guard.outputs.version }}
+          name: Release ${{ steps.guard.outputs.version }}
           generate_release_notes: true
           files: frontend-dist-${{ steps.guard.outputs.version }}.zip
         env:
